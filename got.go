@@ -3,7 +3,6 @@ package got
 import (
 	"bytes"
 	"fmt"
-	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/token"
@@ -38,9 +37,6 @@ func (t *Template) WriteTo(w io.Writer) (n int64, err error) {
 		return n, err
 	}
 
-	// Inject required packages.
-	injectImports(f)
-
 	// Attempt to gofmt.
 	var result bytes.Buffer
 	if err := format.Node(&result, fset, f); err != nil {
@@ -54,6 +50,11 @@ func (t *Template) WriteTo(w io.Writer) (n int64, err error) {
 
 func writeBlocksTo(buf *bytes.Buffer, blks []Block) {
 	for _, blk := range blks {
+		// Skip empty blocks.
+		if blk.empty() {
+			continue
+		}
+
 		// Write line comment.
 		if pos := Position(blk); pos.Path != "" && pos.LineNo > 0 {
 			fmt.Fprintf(buf, "//line %s:%d\n", pos.Path, pos.LineNo)
@@ -62,7 +63,8 @@ func writeBlocksTo(buf *bytes.Buffer, blks []Block) {
 		// Write block.
 		switch blk := blk.(type) {
 		case *TextBlock:
-			fmt.Fprintf(buf, `_, _ = io.WriteString(w, %q)`+"\n", blk.Content)
+			fmt.Fprintf(buf, `_, _ = io.WriteString(w, %q)`+"\n",
+				blk.Content)
 
 		case *CodeBlock:
 			fmt.Fprintln(buf, blk.Content)
@@ -73,7 +75,8 @@ func writeBlocksTo(buf *bytes.Buffer, blks []Block) {
 // Normalize joins together adjacent text blocks.
 func normalizeBlocks(a []Block) []Block {
 	a = joinAdjacentTextBlocks(a)
-	a = trimTrailingEmptyTextBlocks(a)
+	a = trimLeadingEmptyBlocks(a)
+	a = trimTrailingEmptyBlocks(a)
 	return a
 }
 
@@ -102,10 +105,19 @@ func joinAdjacentTextBlocks(a []Block) []Block {
 	return other
 }
 
-func trimTrailingEmptyTextBlocks(a []Block) []Block {
+func trimLeadingEmptyBlocks(a []Block) []Block {
+	for i := 0; i < len(a); i++ {
+		if !a[i].empty() {
+			break
+		}
+		a = a[1:]
+	}
+	return a
+}
+
+func trimTrailingEmptyBlocks(a []Block) []Block {
 	for len(a) > 0 {
-		blk, ok := a[len(a)-1].(*TextBlock)
-		if !ok || strings.TrimSpace(blk.Content) != "" {
+		if !a[len(a)-1].empty() {
 			break
 		}
 		a[len(a)-1] = nil
@@ -114,88 +126,11 @@ func trimTrailingEmptyTextBlocks(a []Block) []Block {
 	return a
 }
 
-func injectImports(f *ast.File) {
-	names := []string{`"fmt"`, `"html"`, `"io"`, `"context"`}
-
-	// Strip packages from existing imports.
-	for i := 0; i < len(f.Decls); i++ {
-		decl, ok := f.Decls[i].(*ast.GenDecl)
-		if !ok || decl.Tok != token.IMPORT {
-			continue
-		}
-
-		// Remove listed imports.
-		removeImportSpecs(decl, names)
-
-		// Remove declaration if it has no imports.
-		if len(decl.Specs) == 0 {
-			copy(f.Decls[i:], f.Decls[i+1:])
-			f.Decls[len(f.Decls)-1] = nil
-			f.Decls = f.Decls[:len(f.Decls)-1]
-			i--
-		}
-	}
-
-	// Generate new import.
-	for i := len(names) - 1; i >= 0; i-- {
-		f.Decls = append([]ast.Decl{&ast.GenDecl{
-			Tok: token.IMPORT,
-			Specs: []ast.Spec{
-				&ast.ImportSpec{Path: &ast.BasicLit{Kind: token.STRING, Value: names[i]}},
-			},
-		}}, f.Decls...)
-	}
-
-	// Add unnamed vars at the end of the file to ensure imports are used.
-	f.Decls = append(f.Decls, &ast.GenDecl{
-		Tok: token.VAR,
-		Specs: []ast.Spec{
-			&ast.ValueSpec{Names: []*ast.Ident{{Name: "_"}}, Type: &ast.Ident{Name: "fmt.Stringer"}},
-		},
-	})
-	f.Decls = append(f.Decls, &ast.GenDecl{
-		Tok: token.VAR,
-		Specs: []ast.Spec{
-			&ast.ValueSpec{Names: []*ast.Ident{{Name: "_"}}, Type: &ast.Ident{Name: "io.Reader"}},
-		},
-	})
-	f.Decls = append(f.Decls, &ast.GenDecl{
-		Tok: token.VAR,
-		Specs: []ast.Spec{
-			&ast.ValueSpec{Names: []*ast.Ident{{Name: "_"}}, Type: &ast.Ident{Name: "context.Context"}},
-		},
-	})
-	f.Decls = append(f.Decls, &ast.GenDecl{
-		Tok: token.VAR,
-		Specs: []ast.Spec{
-			&ast.ValueSpec{Names: []*ast.Ident{{Name: "_"}}, Values: []ast.Expr{&ast.Ident{Name: "html.EscapeString"}}},
-		},
-	})
-}
-
-func removeImportSpecs(decl *ast.GenDecl, names []string) {
-	for i := 0; i < len(decl.Specs); i++ {
-		spec, ok := decl.Specs[i].(*ast.ImportSpec)
-		if !ok || !stringSliceContains(names, spec.Path.Value) {
-			continue
-		}
-
-		// Delete spec.
-		copy(decl.Specs[i:], decl.Specs[i+1:])
-		decl.Specs[len(decl.Specs)-1] = nil
-		decl.Specs = decl.Specs[:len(decl.Specs)-1]
-
-		i--
-	}
-}
-
 // Block represents an element of the template.
 type Block interface {
 	block()
+	empty() bool
 }
-
-func (*TextBlock) block()	{}
-func (*CodeBlock) block()	{}
 
 // PassBlock represents a UTF-8 encoded block of text that is written to the writer as-is.
 type TextBlock struct {
@@ -203,10 +138,24 @@ type TextBlock struct {
 	Content string
 }
 
+func (*TextBlock) block() {
+}
+
+func (b *TextBlock) empty() bool {
+	return strings.TrimSpace(b.Content) == ""
+}
+
 // CodeBlock represents a Go code block that is printed as-is to the template.
 type CodeBlock struct {
 	Pos     Pos
 	Content string
+}
+
+func (*CodeBlock) block() {
+}
+
+func (b *CodeBlock) empty() bool {
+	return strings.TrimSpace(b.Content) == ""
 }
 
 // Position returns the position of the block.

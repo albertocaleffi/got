@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -62,11 +63,11 @@ func (s *Scanner) scanTextBlock() (*TextBlock, error) {
 		case eof:
 			break loop;
 		}
-			
+
 		buf.WriteRune(s.read())
 	}
 
-	blk.Content = string(buf.Bytes())
+	blk.Content = strings.Trim(string(buf.Bytes()), "\n")
 	return blk, nil
 }
 
@@ -78,7 +79,7 @@ func (s *Scanner) scanCodeBlock() (*CodeBlock, error) {
 	if err != nil {
 		return nil, err
 	}
-	blk.Content = content
+	blk.Content = strings.TrimSpace(content)
 	return blk, nil
 }
 
