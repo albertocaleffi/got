@@ -24,7 +24,7 @@ type Scanner struct {
 
 // NewScanner initializes a new scanner with a given reader.
 func NewScanner(r io.Reader, path string) *Scanner {
-	return &Scanner{r: r, pos: Pos{Path: path, LineNo: 1}};
+	return &Scanner{r: r, pos: Pos{Path: path, LineNo: 1}}
 }
 
 // Scan returns the next block from the reader.
@@ -46,28 +46,29 @@ func (s *Scanner) Scan() (Block, error) {
 		return nil, io.EOF
 	}
 
-	return s.scanTextBlock();
+	return s.scanTextBlock()
 }
 
 func (s *Scanner) scanTextBlock() (*TextBlock, error) {
 	buf := bytes.NewBufferString(s.readN(1))
 	blk := &TextBlock{Pos: s.pos}
 
-	loop: for {
+loop:
+	for {
 		switch s.peek() {
 		case '<':
 			if s.peekN(2) == "<%" {
-				break loop;
+				break loop
 			}
 
 		case eof:
-			break loop;
+			break loop
 		}
 
 		buf.WriteRune(s.read())
 	}
 
-	blk.Content = strings.Trim(string(buf.Bytes()), "\n")
+	blk.Content = string(buf.Bytes())
 	return blk, nil
 }
 
