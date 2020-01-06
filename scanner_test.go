@@ -2,9 +2,9 @@ package got_test
 
 import (
 	"bytes"
+	"github.com/albertocaleffi/got"
 	"reflect"
 	"testing"
-	"github.com/albertocaleffi/got"
 )
 
 func samePos(pos got.Pos, path string, lineNo int) bool {
@@ -24,7 +24,7 @@ func TestScanSingleTextBlock(t *testing.T) {
 		{"<%% %>", "<%"},
 		{"<html><title>OK</title></html>", "<html><title>OK</title></html>"},
 	}
-	
+
 	for _, c := range cases {
 		s := got.NewScanner(bytes.NewBufferString(c.in), "tpl.got")
 		if blk, err := s.Scan(); err != nil {
@@ -50,7 +50,7 @@ func TestScanSingleCodeBlock(t *testing.T) {
 		{`<% text(w, "%>") %>`, ` text(w, "`},
 		{`<% text(w, "%%>") %>`, ` text(w, "%>") `},
 	}
-	
+
 	for _, c := range cases {
 		s := got.NewScanner(bytes.NewBufferString(c.in), "tpl.got")
 		if blk, err := s.Scan(); err != nil {
@@ -66,14 +66,14 @@ func TestScanSingleCodeBlock(t *testing.T) {
 }
 
 func TestScanUnexpectedEOF(t *testing.T) {
-	cases := []string {
+	cases := []string{
 		"<%",
 		"<% x = 1 ",
 		"<% x = 2 %",
 		"<% x = 2 % ",
 		"<% x = 2 % >",
 	}
-	
+
 	want := "Expected close tag, found EOF at tpl.got:1"
 	for _, c := range cases {
 		s := got.NewScanner(bytes.NewBufferString(c), "tpl.got")
@@ -117,5 +117,3 @@ func TestScanMultiLineTextBlocks(t *testing.T) {
 		t.Fatalf("unexpected pos(2): %#v", pos)
 	}
 }
-
-
