@@ -1,13 +1,14 @@
-Got (https://godoc.org/github.com/albertocaleffi/got)
+Got - Type safe Go(lang) templating
 ===
 
 Got is an [ERb](http://ruby-doc.org/stdlib-2.1.0/libdoc/erb/rdoc/ERB.html) style
-templating language for Go. It works by transpiling templates into pure Go and including
-them at compile time. These templates are light wrappers around the Go language itself.
+templating language for Go. It works by transpiling templates into pure Go and
+including them at compile time. These templates are lightweight wrappers around the
+Go language itself.
 
 ## Usage
 
-To install got:
+To install Got:
 
 ```sh
 $ go get github.com/albertocaleffi/got/...
@@ -23,14 +24,14 @@ $ got mypkg
 
 ## How to Write Templates
 
-A got template lets you write text that you want to print out but gives you some handy
-tags to let you inject actual Go code. This means you don't need to learn a new scripting
-language to write got templates—you already know Go!
+A got template lets you write text that you want to print out lets you inject actual
+Go code. This means you don't need to learn a new scripting language to write got
+templates—you already know Go!
 
 ### Raw Text
 
-Any text the `got` tool encounters that is not wrapped in `<%` and `%>` tags is considered
-raw text. If you have a template like this:
+Any text the `got` tool encounters that is not wrapped in `<%` and `%>` tags is
+considered raw text. If you have a template like this:
 
 ```
 hello!
@@ -58,16 +59,15 @@ For example, given this template:
 <%
 package myapp
 
-import (
-	"context"
-	"io"
-)
+import "io"
 
-func Render(ctx context.Context, w io.Writer) {
+func Render(w io.Writer) {
 %>
 hello!
 goodbye!
-<% } %>
+<%
+}
+%>
 ```
 
 The `got` tool will generate:
@@ -75,25 +75,26 @@ The `got` tool will generate:
 ```
 package myapp
 
-import (
-	"context"
-	"io"
-)
+import "io"
 
-func Render(ctx context.Context, w io.Writer) {
+func Render(w io.Writer) {
 	io.WriteString(w, "hello!\ngoodbye!")
 }
 ```
 
-_Note the `context` and `io` packages must be imported to your template._
+_Note the `io` package must be imported to your template._
 _You'll need to import any other packages you use._
 
 ## Caveats
 
-Unlike other runtime-based templating languages, got does not support ad hoc templates.
-All templates must be generated before compile time.
+Unlike other runtime-based templating languages, Got does not support ad hoc templates.
+All Got templates must be generated into Go code before compile time.
 
 Got does not attempt to provide any security around the templates. Just like regular Go
-code, the security model is up to you.
+code, the security model is up to you. The text rendered in Got templates must be
+escaped to prevent XSS (Cross-Site Scripting) and other web vulnerabilities.
 
+## Credits
 
+Got is based on the [Ego](https://github.com/benbjohnson/ego) templating package by
+Ben Johnson.
