@@ -1,10 +1,9 @@
 Got - Type safe Go(lang) templating
 ===
 
-Got is an [ERb](http://ruby-doc.org/stdlib-2.1.0/libdoc/erb/rdoc/ERB.html) style
-templating language for Go. It works by transpiling templates into pure Go and
-including them at compile time. These templates are lightweight wrappers around the
-Go language itself.
+Got is a super-easy templating language for Go. It works by transpiling templates into
+pure Go and including them at compile time. These templates are lightweight wrappers
+around the Go language itself.
 
 ## Usage
 
@@ -14,8 +13,8 @@ To install Got:
 $ go get github.com/albertocaleffi/got/...
 ```
 
-Then run `got` on a directory. Recursively traverse the directory structure and generate
-Go files for all matching `.got` files.
+Then run `got` on a directory, it recursively traverse the directory structure
+and generate Go files for all matching `.got` files.
 
 ```sh
 $ got mypkg
@@ -90,9 +89,9 @@ _You'll need to import any other packages you use._
 Unlike other runtime-based templating languages, Got does not support ad hoc templates.
 All Got templates must be generated into Go code before compile time.
 
-Got does not attempt to provide any security around the templates. Just like regular Go
-code, the security model is up to you. The text rendered in Got templates must be
-escaped to prevent XSS (Cross-Site Scripting) and other web vulnerabilities.
+Got does not attempt to provide any security around the templates. Just like regular
+Go code, the security model is up to you. The text rendered in Got templates must be
+HTML-escaped to prevent XSS (Cross-Site Scripting) and other web vulnerabilities.
 
 ## Credits
 
